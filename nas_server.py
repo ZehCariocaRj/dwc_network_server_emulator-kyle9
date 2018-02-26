@@ -162,24 +162,6 @@ class NasHTTPServerHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                             "retry": "1",
                             "reason": "User's console is banned."
                         }
-                    elif self.server.db.is_console_cfc_banned(post):
-                        logger.log(logging.DEBUG, "login denied for banned console"+str(post))
-                        ret = {
-                            "datetime": time.strftime("%Y%m%d%H%M%S"),
-                            "returncd": "3915",
-                            "locator": "gamespy.com",
-                            "retry": "1",
-                            "reason": "User's console is banned."
-                        }
-                    elif self.server.db.is_console_csnum_banned(post):
-                        logger.log(logging.DEBUG, "login denied for banned console"+str(post))
-                        ret = {
-                            "datetime": time.strftime("%Y%m%d%H%M%S"),
-                            "returncd": "3915",
-                            "locator": "gamespy.com",
-                            "retry": "1",
-                            "reason": "User's console is banned."
-                        }
                     elif self.server.db.console_abuse(post):
                         logger.log(logging.DEBUG, "Login denied - Console is banned due to abuse of identifiers"+str(post))
                         ret = {
@@ -188,19 +170,18 @@ class NasHTTPServerHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                             "locator": "gamespy.com",
                             "retry": "1",
                         }
-                    elif not self.server.db.pending(post):
-                        logger.log(logging.DEBUG, "Login denied - Unknown console"+str(post))
+                    elif not self.server.db.console_register(post):
                         ret = {
                             "datetime": time.strftime("%Y%m%d%H%M%S"),
-                            "returncd": "3921",
+                            "returncd": "2222",
                             "locator": "gamespy.com",
                             "retry": "1",
                         }
-                    elif not self.server.db.registered(post):
-                        logger.log(logging.DEBUG, "Login denied - console pending"+str(post))
+                    elif self.server.db.pending_console(post):
+                        logger.log(logging.DEBUG, "Console pending manual activation"+str(post))
                         ret = {
                             "datetime": time.strftime("%Y%m%d%H%M%S"),
-                            "returncd": "3888",
+                            "returncd": "3000",
                             "locator": "gamespy.com",
                             "retry": "1",
                         }
@@ -212,14 +193,6 @@ class NasHTTPServerHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                             "locator": "gamespy.com",
                             "retry": "1",
                         }
-#                    elif not self.server.db.mkw_specific(post):
-#                        logger.log(logging.DEBUG, "Login denied for Mario Kart Wii - incomplete identifiers!"+str(post))
-#                        ret = {
-#                            "datetime": time.strftime("%Y%m%d%H%M%S"),
-#                            "returncd": "2222",
-#                            "locator": "gamespy.com",
-#                            "retry": "1",
-#                        }
                     elif not self.server.db.valid_mac(post):
                         logger.log(logging.DEBUG, "Login denied because MAC is not a valid length"+str(post))
                         ret = {
