@@ -151,8 +151,8 @@ class GamespyDatabase(object):
                         " (userid TEXT, authtoken TEXT, data TEXT)")
             tx.nonquery("CREATE TABLE IF NOT EXISTS banned"
                         " (gameid TEXT, ipaddr TEXT)")
-            tx.nonquery("CREATE TABLE IF NOT EXISTS pending (macadr TEXT)")
-            tx.nonquery("CREATE TABLE IF NOT EXISTS registered (macadr TEXT)")
+            tx.nonquery("CREATE TABLE IF NOT EXISTS consoles "
+                        " (macadr TEXT, csnum TEXT, banned INT(1))")
 
             # Create some indexes for performance.
             tx.nonquery("CREATE UNIQUE INDEX IF NOT EXISTS"
@@ -498,21 +498,14 @@ class GamespyDatabase(object):
         else:
             return json.loads(r["data"])
 
-    def is_banned(self, postdata):
+    def ip_banned(self, postdata):
         with Transaction(self.conn) as tx:
             row = tx.queryone(
-                "SELECT COUNT(*) FROM banned WHERE gameid = ? AND ipaddr = ?",
+                "SELECT COUNT(*) FROM banned WHERE gameid = ? "
+                " AND ipaddr = ?",
                 (postdata['gamecd'][:-1], postdata['ipaddr'])
             )
         return int(row[0]) > 0
-
-    def pending(self, postdata):
-        with Transaction(self.conn) as tx:
-            row = tx.queryone(
-                "SELECT COUNT(*) FROM pending WHERE macadr = ?",
-                (postdata['macadr'],)
-            )
-            return int(row[0]) > 0
 
     def registered(self, postdata):
         with Transaction(self.conn) as tx:
@@ -520,7 +513,44 @@ class GamespyDatabase(object):
                 "SELECT COUNT(*) FROM registered WHERE macadr = ?",
                 (postdata['macadr'],)
             )
+            result = int(row[0])
+            if result == 0:
+                tx.nonquery(
+                    "INSERT INTO consoles (macadr, csnum, banned) "
+                    " VALUES (?,?,0)",
+                    (postdata['macadr'], postdata['csnum'])
+                )
+            return result > 0
+
+    def console_banned(self, postdata):
+        with Transaction(self.conn) as tx:
+            row = tx.queryone(
+                "SELECT COUNT(*) FROM consoles WHERE macadr = ? "
+                " AND banned = 1",
+                (postdata['macadr'],)
+            )
             return int(row[0]) > 0
+
+    def console_abuse(self, postdata):
+        # This function is only applicable for the Wii.
+        # The threshold is also customizable by setting the
+        # 'if result > 1' line
+        # If a Wii has more than one MAC tied to its serial number,
+        # The console will receive error code 23915.
+        if 'csnum' in postdata:
+            with Transaction(self.conn) as tx:
+                row = tx.queryone(
+                    "SELECT COUNT(*) FROM consoles WHERE macadr = ? "
+                    " AND csnum = ?",
+                    (postdata['macadr'], postdata['csnum'])
+                )
+            result = int(row[0])
+            if result > 1:
+                return True
+            else:
+                return False
+        else:
+            return False
 
     def get_next_available_userid(self):
         with Transaction(self.conn) as tx:

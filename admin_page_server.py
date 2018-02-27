@@ -144,7 +144,7 @@ class AdminPage(resource.Resource):
         if actiontype == 'ban':
             dbconn.cursor().execute(
                 'INSERT INTO banned VALUES(?,?)',
-                (gameid, ipaddr)
+                (gameid, id)
             )
             responsedata = "Added gameid=%s, ipaddr=%s" % (gameid, ipaddr)
         else:
@@ -166,56 +166,7 @@ class AdminPage(resource.Resource):
         request.setResponseCode(303)
         return responsedata
 
-    def update_consolelist(self, request):
-        address = request.getClientIP()
-        dbconn = sqlite3.connect('gpcm.db')
-        macadr = request.args['macadr'][0].strip()
-        actiontype = request.args['action'][0]
-        if not macadr.isalnum():
-            request.setResponseCode(500)
-            logger.log(logging.INFO, "%s Bad data %s", address, macadr)
-            return "Bad data"
-        if actiontype == 'add':
-            dbconn.cursor().execute(
-                'INSERT INTO pending VALUES(?)',
-                (macadr,)
-            )
-            dbconn.cursor().execute(
-                'INSERT INTO registered VALUES(?)',
-                (macadr,)
-            )
-            responsedata = "Added macadr=%s" % (macadr)
-        elif actiontype == 'activate':
-            dbconn.cursor().execute(
-                'INSERT INTO registered VALUES(?)',
-                (macadr,)
-            )
-            responsedata = "Activated console belonging to %s" % (macadr)
-        else:
-            dbconn.cursor().execute(
-                'DELETE FROM pending WHERE macadr=?',
-                (macadr,)
-            )
-            dbconn.cursor().execute(
-                'DELETE FROM registered WHERE macadr=?',
-                (macadr,)
-            )
-            responsedata = "Removed macadr=%s" % (macadr)
-        dbconn.commit()
-        dbconn.close()
-        logger.log(logging.INFO, "%s %s", address, responsedata)
-        request.setHeader("Content-Type", "text/html; charset=utf-8")
-        request.setHeader("Location", "/consoles")
-        referer = request.getHeader('referer')
-        request.setResponseCode(303)
-        if not referer:
-            referer = "/banhammer"
-        request.setHeader("Location", referer)
-
-        request.setResponseCode(303)
-        return responsedata
-
-    def render_banlist(self, request):
+    def render_ip_banlist(self, request):
         address = request.getClientIP()
         dbconn = sqlite3.connect('gpcm.db')
         logger.log(logging.INFO, "%s Viewed banlist", address)
@@ -249,6 +200,39 @@ class AdminPage(resource.Resource):
         dbconn.close()
         request.setHeader("Content-Type", "text/html; charset=utf-8")
         return responsedata
+
+    def render_banned_consoles(self, request):
+        address = request.getClientIP()
+        dbconn = sqlite3.connect('gpcm.db')
+        logger.log(logging.INFO, "%s Viewed console list", address)
+        responsedata = """
+        <a href="http://%%20:%%20@%s">[CLICK HERE TO LOG OUT]</a>
+        <table border='1'>
+        <tr>
+            <td>macadr</td>
+            <td>banned</td>
+        </tr>""" % (request.getHeader('host'))
+        for row in dbconn.cursor().execute("SELECT (macadr, banned) FROM banned"):
+            macadr = str(row[0])
+            banned = str(row[1])
+            responsedata += """
+            <tr>
+                <td>%s</td>
+                <td>%s</td>
+                <td>
+                <form action='updatebanlist' method='POST'>
+                    <input type='hidden' name='macadr' value='%s'>
+                    <input type='hidden' name='banned' value='0'>
+                    <input type='hidden' name='action' value='unban'>
+                    <input type='submit' value='----- UNBAN -----'>
+                </form>
+                </td>
+            </tr>""" % (macadr, banned, macadr, banned)
+        responsedata += "</table>"
+        dbconn.close()
+        request.setHeader("Content-Type", "text/html; charset=utf-8")
+        return responsedata
+            
 
     def render_not_available(self, request):
         request.setResponseCode(403)
@@ -297,6 +281,7 @@ class AdminPage(resource.Resource):
             userid = str(row[5])
             gsbrcd = str(nasdata['gsbrcd'])
             ipaddr = str(nasdata['ipaddr'])
+            macadr = str(nasdata]'macadr'])
             ingamesn = ''
             if 'ingamesn' in nasdata:
                 ingamesn = str(nasdata['ingamesn'])
@@ -325,7 +310,8 @@ class AdminPage(resource.Resource):
                    dwc_pid,
                    gsbrcd,
                    userid,
-                   ipaddr)
+                   ipaddr,
+                   macadr)
             if gameid[:-1] + ":" + ipaddr in banned_list:
                 responsedata += """
                     <td>
@@ -453,7 +439,10 @@ class AdminPage(resource.Resource):
         response = ''
         if request.path == "/banlist":
             title = 'AltWfc Banned Users'
-            response = self.render_banlist(request)
+            response = self.render_ip_banlist(request)
+        elif request.bath == /banconsolelist":
+            title = 'AltWfc Banned Consoles'
+            response = self.render_banned_consoles(request)
         elif request.path == "/banhammer":
             title = 'AltWfc Users'
             response = self.render_blacklist(request)

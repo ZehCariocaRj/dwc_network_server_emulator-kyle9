@@ -75,29 +75,38 @@ def handle_ac_acctcreate(handler, db, addr, post):
 
 def handle_ac_login(handler, db, addr, post):
     """Handle ac login request."""
-    if db.is_banned(post):
+    if db.ip_banned(post):
         ret = {
             "retry": "1",
-            "returncd": "3914",
+            "returncd": "3917",
             "locator": "gamespy.com",
             "reason": "User banned."
         }
         logger.log(logging.DEBUG, "Login denied for banned user %s", str(post))
-    # Un-comment these lines to enable console registration feature
-    # elif not db.pending(post):
-    #     logger.log(logging.DEBUG, "Login denied - Unknown console %s", post)
-    #     ret = {
-    #         "retry": "1",
-    #         "returncd": "3921",
-    #         "locator": "gamespy.com",
-    #     }
-    # elif not db.registered(post):
-    #     logger.log(logging.DEBUG, "Login denied - console pending %s", post)
-    #     ret = {
-    #         "retry": "1",
-    #         "returncd": "3888",
-    #         "locator": "gamespy.com",
-    #     }
+    elif not db.registered(post):
+        ret = {
+            "retry": "1",
+            "returncd": "3899",
+            "locator": "gamespy.com",
+            "reason": "User banned."
+        }
+        logger.log(logging.DEBUG, "Console activated! %s", str(post))
+    elif db.console_banned(post):
+        ret = {
+            "retry": "1",
+            "returncd": "3914",
+            "locator": "gamespy.com",
+            "reason": "User console banned."
+        }
+        logger.log(logging.DEBUG, "Banned console %s", str(post))
+    elif db.console_abuse(post):
+        ret = {
+            "retry": "1",
+            "returncd": "3915",
+            "locator": "gamespy.com",
+            "reason": "User console banned due to abuse."
+        }
+        logger.log(logging.DEBUG, "Console abused %s", str(post))
     else:
         challenge = utils.generate_random_str(8)
         post["challenge"] = challenge
